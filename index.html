@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="shell-type" content="mobile_tab"/>
+  <title>Mailwise</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+
+  <style>
+    /* ─── Reset & base ─────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body {
+      width: 100%; max-width: 100vw; margin: 0; padding: 0;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      overscroll-behavior: none;
+      -webkit-tap-highlight-color: transparent;
+      background: #f7f9fd;
+      color: #191c1f;
+    }
+    ::-webkit-scrollbar { display: none; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .pt-safe  { padding-top:    env(safe-area-inset-top,    0px); }
+
+    /* ─── Screen system ─────────────────────────────── */
+    .screen {
+      position: absolute; inset: 0;
+      display: none; flex-direction: column;
+      overflow-y: auto; overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      will-change: transform, opacity;
+    }
+    .screen.active { display: flex; }
+
+    /* ─── GSAP initial states ───────────────────────── */
+    .gsap-hidden  { opacity: 0; }
+    .fade-up      { opacity: 0; transform: translateY(16px); }
+    .fade-right   { opacity: 0; transform: translateX(28px); }
+    .scale-in     { opacity: 0; transform: scale(0.93) translateY(10px); }
+    .nav-link     { opacity: 0; transform: translateY(12px); }
+
+    /* ─── Radar SVG draw-in ─────────────────────────── */
+    #radar-data-poly { stroke-dasharray: 900; stroke-dashoffset: 900; }
+    .radar-axis { stroke-dasharray: 300; stroke-dashoffset: 300; }
+    .radar-vertex { transform-origin: center; transform-box: fill-box; }
+
+    /* ─── Ambient CSS animations ────────────────────── */
+    @keyframes aura-breathe {
+      0%, 100% { opacity: .18; transform: scale(1); }
+      50%       { opacity: .3;  transform: scale(1.07); }
+    }
+    .aura-blob  { animation: aura-breathe 5s   ease-in-out infinite; }
+    .aura-blob2 { animation: aura-breathe 6.5s ease-in-out infinite reverse; }
+
+    @keyframes scan-ring {
+      0%   { box-shadow: 0 0 0 0   rgba(70,72,212,.5); }
+      70%  { box-shadow: 0 0 0 10px rgba(70,72,212,0); }
+      100% { box-shadow: 0 0 0 0   rgba(70,72,212,0); }
+    }
+    .scan-ring { animation: scan-ring 2.6s ease-out infinite; }
+
+    @keyframes live-pulse {
+      0%,100% { opacity: 1; box-shadow: 0 0 0 0   rgba(123,208,255,.7); }
+      50%     { opacity: .6; box-shadow: 0 0 0 5px rgba(123,208,255,0); }
+    }
+    .live-dot { animation: live-pulse 1.8s ease-in-out infinite; }
+
+    /* ─── Reduced-motion override ───────────────────── */
+    @media (prefers-reduced-motion: reduce) {
+      .aura-blob, .aura-blob2, .scan-ring, .live-dot { animation: none !important; }
+    }
+
+    /* ─── Nav active indicator ─────────────────────── */
+    .nav-link.nav-active {
+      background: #4648d4;
+      color: #ffffff;
+      box-shadow: 0 8px 20px -4px rgba(70,72,212,.45);
+    }
+    .nav-link:not(.nav-active) { color: #464554; }
+
+    /* ─── Drawer ────────────────────────────────────── */
+    #navDrawer { transition: transform .3s cubic-bezier(.4,0,.2,1); }
+    #drawerBackdrop { transition: opacity .3s ease; }
+    #drawerBackdrop.hidden { pointer-events: none; opacity: 0; }
+
+    /* ─── Triage / list row hover ───────────────────── */
+    .row-card { transition: background .15s ease, transform .1s ease; cursor: pointer; }
+    .row-card:active { transform: scale(.985); }
+
+    /* ─── Toggle switch ─────────────────────────────── */
+    .toggle-track {
+      width: 44px; height: 24px; border-radius: 12px;
+      background: #c7c4d7; position: relative;
+      transition: background .2s ease; cursor: pointer;
+      flex-shrink: 0;
+    }
+    .toggle-track.on { background: #4648d4; }
+    .toggle-thumb {
+      position: absolute; top: 3px; left: 3px;
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #fff; transition: left .2s ease;
+      box-shadow: 0 1px 4px rgba(0,0,0,.2);
+    }
+    .toggle-track.on .toggle-thumb { left: 23px; }
+
+    /* ─── Chip / pill tags ──────────────────────────── */
+    .chip {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 10px; border-radius: 999px;
+      font-size: 10px; font-weight: 600; letter-spacing: .04em;
+    }
+    .chip-safe   { background: #c4e7ff; color: #001e2c; }
+    .chip-spam   { background: #ffd9e4; color: #3e0022; }
+    .chip-warn   { background: #ffdad6; color: #93000a; }
+    .chip-secure { background: rgba(255,255,255,.18); color: #c4e7ff; backdrop-filter: blur(6px); }
+
+    /* ─── Empty state ───────────────────────────────── */
+    .empty-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 48px 24px; gap: 12px; text-align: center;
+    }
+
+    /* ─── Toast ─────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+      background: #2d3134; color: #eff1f5; padding: 10px 20px;
+      border-radius: 999px; font-size: 12px; font-weight: 600;
+      opacity: 0; pointer-events: none; z-index: 200;
+      white-space: nowrap;
+    }
+
+    /* ─── Section label ─────────────────────────────── */
+    .section-label {
+      font-size: 10px; font-weight: 600; letter-spacing: .06em;
+      text-transform: uppercase; color: #767586;
+    }
+
+    /* ─── Divider ───────────────────────────────────── */
+    .divider { height: 1px; background: #e0e2e6; margin: 4px 0; }
+  </style>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "surface":                    "#f7f9fd",
+            "surface-container-highest":  "#e0e2e6",
+            "primary":                    "#4648d4",
+            "secondary-fixed":            "#ffd9e4",
+            "on-background":              "#191c1f",
+            "surface-variant":            "#e0e2e6",
+            "tertiary-fixed-dim":         "#7bd0ff",
+            "on-tertiary-container":      "#fcfcff",
+            "tertiary-fixed":             "#c4e7ff",
+            "on-error-container":         "#93000a",
+            "secondary":                  "#b4136d",
+            "on-secondary-fixed-variant": "#8c0053",
+            "error":                      "#ba1a1a",
+            "primary-fixed":              "#e1e0ff",
+            "on-tertiary":                "#ffffff",
+            "on-primary":                 "#ffffff",
+            "surface-container-high":     "#e6e8ec",
+            "on-secondary":               "#ffffff",
+            "tertiary":                   "#006387",
+            "background":                 "#f7f9fd",
+            "inverse-surface":            "#2d3134",
+            "outline-variant":            "#c7c4d7",
+            "surface-container":          "#eceef2",
+            "primary-container":          "#6063ee",
+            "surface-bright":             "#f7f9fd",
+            "on-error":                   "#ffffff",
+            "surface-dim":                "#d8dade",
+            "secondary-container":        "#fd56a7",
+            "on-secondary-container":     "#600037",
+            "on-surface-variant":         "#464554",
+            "error-container":            "#ffdad6",
+            "primary-fixed-dim":          "#c0c1ff",
+            "inverse-on-surface":         "#eff1f5",
+            "on-primary-fixed":           "#07006c",
+            "outline":                    "#767586",
+            "surface-container-low":      "#f2f4f8",
+            "tertiary-container":         "#007da9",
+            "on-tertiary-fixed":          "#001e2c",
+            "on-secondary-fixed":         "#3e0022",
+            "on-primary-fixed-variant":   "#2f2ebe",
+            "surface-tint":               "#494bd6",
+            "on-surface":                 "#191c1f",
+            "secondary-fixed-dim":        "#ffb0cd",
+            "inverse-primary":            "#c0c1ff",
+            "on-primary-container":       "#fffbff",
+            "on-tertiary-fixed-variant":  "#004c69",
+            "surface-container-lowest":   "#ffffff",
+          },
+          borderRadius: {
+            DEFAULT: "1rem", lg: "2rem", xl: "3rem", full: "9999px",
+          },
+          spacing: {
+            "space-xs": "0.25rem", "space-sm": "0.5rem",
+            "space-md": "1rem",    "space-lg": "1.5rem",
+            "space-xl": "2rem",    "gutter":   "1rem",
+          },
+          fontFamily: {
+            sans: ["Plus Jakarta Sans", "sans-serif"],
+          },
+          fontSize: {
+            "label-sm":          ["10px",  { lineHeight:"12px", letterSpacing:".04em",  fontWeight:"600" }],
+            "label-md":          ["11px",  { lineHeight:"14px", letterSpacing:".06em",  fontWeight:"700" }],
+            "label-lg":          ["14px",  { lineHeight:"18px", letterSpacing:".02em",  fontWeight:"600" }],
+            "body-sm":           ["12px",  { lineHeight:"16px", letterSpacing:".01em",  fontWeight:"400" }],
+            "body-md":           ["14px",  { lineHeight:"20px", letterSpacing:"0em",    fontWeight:"400" }],
+            "body-lg":           ["16px",  { lineHeight:"24px", letterSpacing:"0em",    fontWeight:"400" }],
+            "headline-sm":       ["18px",  { lineHeight:"24px", letterSpacing:"-.01em", fontWeight:"600" }],
+            "headline-md":       ["22px",  { lineHeight:"28px", letterSpacing:"-.015em",fontWeight:"600" }],
+            "headline-lg":       ["28px",  { lineHeight:"34px", letterSpacing:"-.02em", fontWeight:"700" }],
+            "headline-xl":       ["40px",  { lineHeight:"48px", letterSpacing:"-.03em", fontWeight:"700" }],
+            "headline-xl-mobile":["32px",  { lineHeight:"38px", letterSpacing:"-.025em",fontWeight:"700" }],
+          },
+        }
+      }
+    };
+  </script>
+</head>
+
+<body class="bg-surface text-on-surface text-body-md flex flex-col min-h-screen">
+
+<!-- ════════════════════════════════════════════════
+     TOAST
+════════════════════════════════════════════════ -->
+<div id="toast" role="status" aria-live="polite"></div>
+
+<!-- ════════════════════════════════════════════════
+     HEADER (fixed, shared across all screens)
+════════════════════════════════════════════════ -->
+<header id="app-header" class="gsap-hidden fixed top-0 w-full z-50 pt-safe bg-surface/80 backdrop-blur-xl"
+        style="box-shadow:0 1px 8px rgba(0,0,0,.04);">
+  <div class="flex items-center justify-between px-space-md h-16">
+    <div class="flex items-center gap-space-sm">
+      <div class="scan-ring w-10 h-10 rounded-full bg-primary-fixed flex items-center justify-center text-primary"
+           style="box-shadow:0 4px 12px rgba(70,72,212,.12)">
+        <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1;">verified_user</span>
+      </div>
+      <span id="header-title" class="text-headline-sm font-semibold text-on-surface tracking-tight">Home</span>
+    </div>
+    <div class="flex items-center gap-space-sm">
+      <button id="menuToggleBtn" aria-label="Open navigation menu"
+        class="w-11 h-11 rounded-full bg-surface-container-lowest/80 backdrop-blur-md flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors"
+        style="box-shadow:0 2px 8px rgba(0,0,0,.05)">
+        <span class="material-symbols-outlined text-[22px]">apps</span>
+      </button>
+      <button id="profileAvatarBtn" aria-label="Go to profile"
+        class="w-9 h-9 rounded-full bg-primary flex items-center justify-center hover:opacity-90 transition-opacity">
+        <span class="material-symbols-outlined text-on-primary text-[18px]">person</span>
+      </button>
+    </div>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════
+     DRAWER BACKDROP
+════════════════════════════════════════════════ -->
+<div id="drawerBackdrop" class="hidden fixed inset-0 z-[60] bg-inverse-surface/20 backdrop-blur-sm"></div>
+
+<!-- ════════════════════════════════════════════════
+     NAV DRAWER
+════════════════════════════════════════════════ -->
+<aside id="navDrawer"
+  class="fixed top-0 right-0 z-[70] h-full w-4/5 max-w-xs flex flex-col pt-safe pb-safe"
+  style="background:rgba(255,255,255,.92);backdrop-filter:blur(28px);
+         box-shadow:-8px 0 32px rgba(70,72,212,.1);transform:translateX(100%);">
+  <div class="flex items-center justify-between px-space-lg h-16">
+    <div class="flex items-center gap-space-sm">
+      <div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary">
+        <span class="material-symbols-outlined text-[18px]" style="font-variation-settings:'FILL' 1;">shield</span>
+      </div>
+      <span class="text-headline-sm font-semibold text-on-surface">Mailwise</span>
+    </div>
+    <button id="drawerClose" class="w-10 h-10 rounded-full flex items-center justify-center text-on-surface-variant hover:bg-surface-container-high transition-colors" aria-label="Close menu">
+      <span class="material-symbols-outlined text-[20px]">close</span>
+    </button>
+  </div>
+
+  <nav class="px-space-md py-space-sm flex flex-col gap-space-xs flex-1 overflow-y-auto">
+    <a class="drawer-link flex items-center gap-space-md px-space-md py-3 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" data-screen="home">
+      <span class="material-symbols-outlined text-[22px]">dashboard</span>
+      <span class="text-label-lg font-semibold">Home</span>
+    </a>
+    <a class="drawer-link flex items-center gap-space-md px-space-md py-3 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" data-screen="safe-mailbox">
+      <span class="material-symbols-outlined text-[22px]">mark_email_read</span>
+      <span class="text-label-lg font-semibold">Safe Mailbox</span>
+    </a>
+    <a class="drawer-link flex items-center gap-space-md px-space-md py-3 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" data-screen="spam-mailbox">
+      <span class="material-symbols-outlined text-[22px]">unsubscribe</span>
+      <span class="text-label-lg font-semibold">Spam Mailbox</span>
+    </a>
+    <a class="drawer-link flex items-center gap-space-md px-space-md py-3 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" data-screen="events">
+      <span class="material-symbols-outlined text-[22px]">shield_with_heart</span>
+      <span class="text-label-lg font-semibold">Events</span>
+    </a>
+    <a class="drawer-link flex items-center gap-space-md px-space-md py-3 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" data-screen="profile">
+      <span class="material-symbols-outlined text-[22px]">manage_accounts</span>
+      <span class="text-label-lg font-semibold">Profile</span>
+    </a>
+    <div class="divider mx-space-md my-1"></div>
+    <a class="drawer-link flex items-center gap-space-md px-space-md py-3 rounded-full text-on-surface-variant hover:bg-surface-container-low hover:text-on-surface transition-colors" data-screen="help">
+      <span class="material-symbols-outlined text-[22px]">help_center</span>
+      <span class="text-label-lg font-semibold">Help &amp; About</span>
+    </a>
+  </nav>
+
+  <div class="p-space-md">
+    <div class="p-3 rounded-xl flex items-center gap-space-sm" style="background:rgba(70,72,212,.1);">
+      <span class="material-symbols-outlined text-primary text-[20px]" style="font-variation-settings:'FILL' 1;">verified</span>
+      <div>
+        <p class="text-body-sm font-semibold text-on-primary-fixed leading-tight">Mailwise Shield</p>
+        <p class="text-label-sm text-outline leading-tight">Heuristic engine v3.1</p>
+      </div>
+    </div>
+  </div>
+</aside>
+
+<!-- ════════════════════════════════════════════════
+     SCREEN WRAPPER
+════════════════════════════════════════════════ -->
+<div id="screen-container" class="fixed top-0 left-0 right-0 bottom-0 overflow-hidden" style="padding-top:64px; padding-bottom:88px;">
+
+  <!-- ══════════════════════════════════
+       SCREEN: HOME
+  ══════════════════════════════════ -->
+  <div id="screen-home" class="screen active px-space-md pt-4 pb-6 gap-y-space-md">
+
+    <!-- Ambient glow -->
+    <div class="pointer-events-none fixed top-10 left-1/2 -translate-x-1/2 w-72 h-64 rounded-full blur-3xl -z-10"
+         style="background:radial-gradient(ellipse,rgba(70,72,212,.12) 0%,rgba(96,99,238,.07) 50%,transparent 70%);"></div>
+
+    <!-- Section Header -->
+    <div id="home-header" class="fade-up flex items-center justify-between pt-1">
+      <div>
+        <p class="section-label">Telemetry Overview</p>
+        <h1 class="text-headline-lg font-bold text-on-surface tracking-tight">Your Mailbox</h1>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button title="Shield status" class="w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-primary hover:bg-surface-container transition-colors">
+          <span class="material-symbols-outlined text-[17px]" style="font-variation-settings:'FILL' 1;">shield</span>
+        </button>
+        <button title="Stats" class="w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-secondary hover:bg-surface-container transition-colors">
+          <span class="material-symbols-outlined text-[17px]" style="font-variation-settings:'FILL' 1;">donut_small</span>
+        </button>
+        <button title="Filter" class="w-9 h-9 rounded-full bg-white/90 backdrop-blur-sm shadow-sm flex items-center justify-center text-on-surface-variant hover:bg-surface-container transition-colors">
+          <span class="material-symbols-outlined text-[17px]">tune</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- ── Hero Radar Card ── -->
+    <div id="hero-card" class="gsap-hidden relative w-full rounded-2xl overflow-hidden p-space-lg text-on-primary"
+         style="background:linear-gradient(145deg,#4648d4 0%,#6063ee 55%,#7bd0ff 100%);
+                box-shadow:0 20px 48px -12px rgba(70,72,212,.38);">
+
+      <!-- atmospheric blobs -->
+      <div class="aura-blob  pointer-events-none absolute -top-10 -right-10 w-44 h-44 rounded-full blur-2xl"
+           style="background:rgba(253,86,167,.22);"></div>
+      <div class="aura-blob2 pointer-events-none absolute -bottom-12 -left-10 w-52 h-52 rounded-full blur-2xl"
+           style="background:rgba(123,208,255,.2);"></div>
+
+      <!-- top row -->
+      <div class="relative z-10 flex items-start justify-between">
+        <div>
+          <p class="text-label-sm uppercase tracking-wider" style="color:rgba(255,255,255,.75);">Overall Protection Index</p>
+          <div class="flex items-baseline gap-2 mt-0.5">
+            <span id="protection-pct" class="text-headline-xl-mobile font-bold tracking-tight">0%</span>
+            <span class="chip chip-secure">SECURE</span>
+          </div>
+        </div>
+        <div id="scan-badge" class="gsap-hidden flex items-center gap-1.5 px-3 py-1 rounded-full"
+             style="background:rgba(255,255,255,.18);backdrop-filter:blur(8px);">
+          <span class="live-dot w-2 h-2 rounded-full" style="background:#c4e7ff;"></span>
+          <span id="scan-count" class="text-label-sm font-bold tracking-wide">0 SCANS / MO</span>
+        </div>
+      </div>
+
+      <!-- radar -->
+      <div class="relative my-4 flex items-center justify-center min-h-[210px]">
+        <svg class="w-full max-w-[270px] h-[210px] overflow-visible drop-shadow-sm" viewBox="0 0 280 230">
+          <!-- frames -->
+          <polygon fill="rgba(255,255,255,.04)" stroke="rgba(255,255,255,.2)"  stroke-width="1" stroke-dasharray="2 3" points="140,25 245,86 205,200 75,200 35,86"/>
+          <polygon fill="rgba(255,255,255,.05)" stroke="rgba(255,255,255,.24)" stroke-width="1" points="140,55 215,98 186,180 94,180 65,98"/>
+          <polygon fill="rgba(255,255,255,.06)" stroke="rgba(255,255,255,.28)" stroke-width="1" points="140,85 186,110 168,160 112,160 94,110"/>
+          <!-- axes -->
+          <line class="radar-axis" stroke="rgba(255,255,255,.22)" stroke-width="1" x1="140" y1="120" x2="140" y2="25"/>
+          <line class="radar-axis" stroke="rgba(255,255,255,.22)" stroke-width="1" x1="140" y1="120" x2="245" y2="86"/>
+          <line class="radar-axis" stroke="rgba(255,255,255,.22)" stroke-width="1" x1="140" y1="120" x2="205" y2="200"/>
+          <line class="radar-axis" stroke="rgba(255,255,255,.22)" stroke-width="1" x1="140" y1="120" x2="75"  y2="200"/>
+          <line class="radar-axis" stroke="rgba(255,255,255,.22)" stroke-width="1" x1="140" y1="120" x2="35"  y2="86"/>
+          <!-- data shape -->
+          <polygon id="radar-data-poly" fill="rgba(255,255,255,.24)" stroke="#ffffff" stroke-width="2"
+                   points="140,38 232,92 190,192 88,175 48,96"/>
+          <!-- vertices -->
+          <circle class="radar-vertex" cx="140" cy="38"  r="4.5" fill="#ffd9e4" stroke="#fff" stroke-width="2"/>
+          <circle class="radar-vertex" cx="232" cy="92"  r="4.5" fill="#7bd0ff" stroke="#fff" stroke-width="2"/>
+          <circle class="radar-vertex" cx="190" cy="192" r="4.5" fill="#c0c1ff" stroke="#fff" stroke-width="2"/>
+          <circle class="radar-vertex" cx="88"  cy="175" r="4.5" fill="#ffd9e4" stroke="#fff" stroke-width="2"/>
+          <circle class="radar-vertex" cx="48"  cy="96"  r="4.5" fill="#c4e7ff" stroke="#fff" stroke-width="2"/>
+        </svg>
+
+        <!-- vertex pill labels -->
+        <div class="vertex-pill gsap-hidden absolute top-0 left-1/2 -translate-x-1/2
+                    flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/85 backdrop-blur-md shadow-sm">
+          <span class="w-1.5 h-1.5 rounded-full bg-primary"></span>
+          <span class="text-label-sm font-bold text-on-surface whitespace-nowrap">SPF/DKIM</span>
+          <span class="text-label-sm font-bold text-primary">99%</span>
+        </div>
+        <div class="vertex-pill gsap-hidden absolute top-14 right-0
+                    flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/80 backdrop-blur-sm shadow-sm">
+          <span class="w-1.5 h-1.5 rounded-full bg-tertiary"></span>
+          <span class="text-label-sm text-on-surface">Links</span>
+          <span class="text-label-sm font-bold text-on-surface">96%</span>
+        </div>
+        <div class="vertex-pill gsap-hidden absolute bottom-0 right-2
+                    flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/80 backdrop-blur-sm shadow-sm">
+          <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+          <span class="text-label-sm text-on-surface">Files</span>
+          <span class="text-label-sm font-bold text-on-surface">91%</span>
+        </div>
+        <div class="vertex-pill gsap-hidden absolute bottom-0 left-2
+                    flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/80 backdrop-blur-sm shadow-sm">
+          <span class="w-1.5 h-1.5 rounded-full" style="background:#c4e7ff;"></span>
+          <span class="text-label-sm text-on-surface">Trust</span>
+          <span class="text-label-sm font-bold text-on-surface">88%</span>
+        </div>
+        <div class="vertex-pill gsap-hidden absolute top-14 left-0
+                    flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/80 backdrop-blur-sm shadow-sm">
+          <span class="w-1.5 h-1.5 rounded-full" style="background:#c0c1ff;"></span>
+          <span class="text-label-sm text-on-surface">Heuristics</span>
+          <span class="text-label-sm font-bold text-on-surface">98%</span>
+        </div>
+      </div>
+
+      <!-- bottom row -->
+      <div class="relative z-10 flex items-center justify-between pt-1">
+        <div class="flex flex-col gap-0.5 p-1 rounded-full" style="background:rgba(255,255,255,.18);">
+          <button class="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors" aria-label="Zoom in">
+            <span class="material-symbols-outlined text-[13px] text-on-primary">add</span>
+          </button>
+          <div class="w-3 mx-auto h-px" style="background:rgba(255,255,255,.25);"></div>
+          <button class="w-6 h-6 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors" aria-label="Zoom out">
+            <span class="material-symbols-outlined text-[13px] text-on-primary">remove</span>
+          </button>
+        </div>
+        <div class="flex items-center gap-2">
+          <span class="text-body-sm" style="color:rgba(255,255,255,.8);">Active Protection</span>
+          <span class="material-symbols-outlined text-[18px]" style="color:#c4e7ff;font-variation-settings:'FILL' 1;">verified_user</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Quarantine chart ── -->
+    <div id="dot-matrix-card" class="fade-up w-full rounded-2xl bg-white p-space-md flex flex-col gap-space-sm"
+         style="box-shadow:0 4px 24px rgba(0,0,0,.04);">
+      <div class="flex items-start justify-between gap-2">
+        <div>
+          <p class="section-label">Quarantine &amp; Triage</p>
+          <div class="flex items-center gap-2 mt-0.5">
+            <span id="reviewed-count" class="text-headline-md font-bold text-on-surface">0 Reviewed</span>
+            <span class="chip chip-safe flex items-center gap-0.5">
+              <span class="material-symbols-outlined text-[11px]">trending_down</span>−12%
+            </span>
+          </div>
+        </div>
+        <!-- period tabs -->
+        <div id="period-tabs" class="flex items-center gap-0.5 rounded-full p-0.5" style="background:#eceef2;">
+          <button class="period-tab rounded-full px-2.5 py-1 text-label-sm font-semibold transition-all text-on-surface-variant hover:text-on-surface" data-period="daily">Daily</button>
+          <button class="period-tab rounded-full px-2.5 py-1 text-label-sm font-semibold transition-all text-on-surface-variant hover:text-on-surface" data-period="weekly">Weekly</button>
+          <button class="period-tab period-tab-active rounded-full px-2.5 py-1 text-label-sm font-semibold text-on-surface bg-white shadow-sm" data-period="monthly">Monthly</button>
+        </div>
+      </div>
+
+      <!-- dot-matrix -->
+      <div class="pt-1 pb-0.5">
+        <div class="w-full flex items-end justify-between h-24 px-0.5">
+          <!-- 16 columns – heights chosen for bell curve around col 12 -->
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span><span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <!-- peak -->
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-secondary"></span><span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span><span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span><span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed-dim"></span><span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-secondary-container"></span><span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed-dim"></span><span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-secondary-fixed"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+          <div class="dot-col flex flex-col items-center gap-1 justify-end h-full"><span class="w-1.5 h-1.5 rounded-full bg-surface-container-highest"></span></div>
+        </div>
+        <div class="flex justify-between items-center px-0.5 pt-2 text-label-sm text-outline">
+          <span>May 1</span>
+          <span class="text-secondary font-bold">Peak: May 18 (4 attacks)</span>
+          <span>Today</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Dual action tiles ── -->
+    <div class="grid grid-cols-2 gap-space-sm">
+      <!-- Pulse Guard -->
+      <div class="scale-in relative rounded-2xl p-space-md overflow-hidden flex flex-col justify-between min-h-[148px] cursor-pointer"
+           style="background:linear-gradient(140deg,#b4136d 0%,#fd56a7 65%,#ffd9e4 100%);
+                  box-shadow:0 12px 28px -6px rgba(180,19,109,.35);"
+           onclick="showScreen('spam-mailbox')">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-1.5">
+            <div class="w-7 h-7 rounded-full flex items-center justify-center" style="background:rgba(255,255,255,.22);">
+              <span class="material-symbols-outlined text-[16px] text-on-secondary">radar</span>
+            </div>
+            <div>
+              <p class="text-label-lg font-bold text-on-secondary leading-tight">Pulse Guard</p>
+              <p class="text-label-sm text-on-secondary/80">Online now</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-[18px] text-on-secondary/80">north_east</span>
+        </div>
+        <p class="text-body-sm text-on-secondary font-medium leading-snug pt-4">2 suspicious emails need review. Tap to triage →</p>
+      </div>
+
+      <!-- Safe Mail -->
+      <div class="scale-in relative rounded-2xl p-space-md overflow-hidden flex flex-col justify-between min-h-[148px] cursor-pointer"
+           style="background:linear-gradient(140deg,#6063ee 0%,#c0c1ff 65%,#7bd0ff 100%);
+                  box-shadow:0 12px 28px -6px rgba(70,72,212,.28);"
+           onclick="showScreen('safe-mailbox')">
+        <div class="flex items-start justify-between">
+          <div class="flex items-center gap-1.5">
+            <div class="w-7 h-7 rounded-full flex items-center justify-center" style="background:rgba(255,255,255,.3);">
+              <span class="material-symbols-outlined text-[16px] text-primary">mark_email_read</span>
+            </div>
+            <div>
+              <p class="text-label-lg font-bold text-on-primary-fixed leading-tight">Safe Mail</p>
+              <p class="text-label-sm text-on-primary-fixed/70">Verified feed</p>
+            </div>
+          </div>
+          <span class="material-symbols-outlined text-[18px] text-on-primary-fixed/70">north_east</span>
+        </div>
+        <div class="pt-4">
+          <p id="verified-count" class="text-headline-md font-bold text-on-primary-fixed leading-none">0 verified</p>
+          <p class="text-body-sm text-on-primary-fixed/80 pt-0.5">Arrived today safely</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Needs Attention ── -->
+    <div>
+      <div id="triage-header" class="fade-up flex items-center justify-between mb-2 px-0.5">
+        <h2 class="text-headline-sm font-semibold text-on-surface">Needs Attention</h2>
+        <button class="text-label-md font-bold text-primary uppercase tracking-wider hover:underline"
+                onclick="showScreen('spam-mailbox')">View All (4)</button>
+      </div>
+
+      <!-- triage card 1 -->
+      <div class="triage-card row-card w-full rounded-xl bg-white p-space-md flex items-center justify-between gap-space-sm mb-2"
+           style="box-shadow:0 2px 12px rgba(0,0,0,.03);">
+        <div class="flex items-center gap-space-sm min-w-0">
+          <div class="w-10 h-10 rounded-full bg-error-container text-on-error-container flex-shrink-0 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">warning</span>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span class="text-label-lg font-bold text-on-surface truncate">IT Helpdesk Password Notice</span>
+              <span class="w-2 h-2 rounded-full bg-error flex-shrink-0"></span>
+            </div>
+            <p class="text-body-sm text-on-surface-variant truncate">security@m1crosoft-auth.org · Spoofed domain</p>
+          </div>
+        </div>
+        <button class="flex-shrink-0 px-3 py-1.5 rounded-full bg-error text-on-error text-label-sm font-bold hover:opacity-90 active:opacity-80 transition-opacity"
+                onclick="quarantine(this,'IT Helpdesk Password Notice')">Quarantine</button>
+      </div>
+
+      <!-- triage card 2 -->
+      <div class="triage-card row-card w-full rounded-xl bg-white p-space-md flex items-center justify-between gap-space-sm"
+           style="box-shadow:0 2px 12px rgba(0,0,0,.03);">
+        <div class="flex items-center gap-space-sm min-w-0">
+          <div class="w-10 h-10 rounded-full bg-secondary-fixed text-on-secondary-fixed flex-shrink-0 flex items-center justify-center">
+            <span class="material-symbols-outlined text-[20px]">local_shipping</span>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-1.5">
+              <span class="text-label-lg font-bold text-on-surface truncate">DHL Package #94820 Alert</span>
+              <span class="w-2 h-2 rounded-full bg-secondary flex-shrink-0"></span>
+            </div>
+            <p class="text-body-sm text-on-surface-variant truncate">Suspicious attachment · Trojan heuristic</p>
+          </div>
+        </div>
+        <button class="flex-shrink-0 px-3 py-1.5 rounded-full bg-surface-container-high text-on-surface text-label-sm font-bold hover:bg-surface-variant active:bg-outline-variant transition-colors"
+                onclick="showToast('Opening inspection view…')">Inspect</button>
+      </div>
+    </div>
+
+    <!-- ── Status pill ── -->
+    <div id="status-bar" class="fade-up w-full rounded-full py-2.5 px-4 flex items-center justify-between"
+         style="background:rgba(70,72,212,.09);">
+      <div class="flex items-center gap-2">
+        <span class="material-symbols-outlined text-[17px] text-primary" style="font-variation-settings:'FILL' 1;">security_update_good</span>
+        <span class="text-label-sm font-semibold text-on-primary-fixed">Zero-Day Shield updated 4m ago</span>
+      </div>
+      <button class="text-label-sm font-bold text-primary hover:underline" onclick="showToast('Telemetry log coming soon')">Telemetry log</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: SAFE MAILBOX
+  ══════════════════════════════════ -->
+  <div id="screen-safe-mailbox" class="screen px-space-md pt-4 pb-6 gap-y-3">
+    <!-- search bar -->
+    <div class="fade-up flex items-center gap-2 rounded-full px-3 py-2.5 bg-white" style="box-shadow:0 2px 10px rgba(0,0,0,.05);">
+      <span class="material-symbols-outlined text-[20px] text-outline">search</span>
+      <input type="search" placeholder="Search verified mail…" class="flex-1 bg-transparent text-body-md text-on-surface placeholder:text-outline outline-none border-none"/>
+      <span class="material-symbols-outlined text-[20px] text-primary" style="font-variation-settings:'FILL' 1;">filter_list</span>
+    </div>
+
+    <!-- summary chips -->
+    <div class="fade-up flex items-center gap-2 flex-wrap">
+      <span class="chip chip-safe flex items-center gap-1"><span class="material-symbols-outlined text-[11px]">mark_email_read</span>14 today</span>
+      <span class="chip" style="background:#e1e0ff;color:#2f2ebe;">66 this month</span>
+      <span class="chip" style="background:#eceef2;color:#464554;">All verified</span>
+    </div>
+
+    <!-- mail rows -->
+    <div class="fade-up flex flex-col gap-2">
+      <p class="section-label px-0.5">Today</p>
+      <!-- row helper used 5× -->
+      <div class="row-card safe-mail-row rounded-xl bg-white p-3 flex items-start gap-3" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-label-lg font-bold text-on-primary" style="background:linear-gradient(135deg,#4648d4,#6063ee);">G</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface truncate">Google Security Alert</p>
+            <span class="text-label-sm text-outline flex-shrink-0">9:14 AM</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant truncate">Your account was accessed from a new device in Mumbai.</p>
+        </div>
+        <span class="material-symbols-outlined text-[16px] text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">verified</span>
+      </div>
+      <div class="row-card safe-mail-row rounded-xl bg-white p-3 flex items-start gap-3" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-label-lg font-bold text-on-primary" style="background:linear-gradient(135deg,#007da9,#006387);">N</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface truncate">Notion Team</p>
+            <span class="text-label-sm text-outline flex-shrink-0">8:50 AM</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant truncate">Your weekly workspace digest is ready to view.</p>
+        </div>
+        <span class="material-symbols-outlined text-[16px] text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">verified</span>
+      </div>
+      <div class="row-card safe-mail-row rounded-xl bg-white p-3 flex items-start gap-3" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-label-lg font-bold" style="background:linear-gradient(135deg,#b4136d,#fd56a7);color:#fff;">S</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface truncate">Stripe Receipt</p>
+            <span class="text-label-sm text-outline flex-shrink-0">8:02 AM</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant truncate">Payment of ₹2,499 received for subscription renewal.</p>
+        </div>
+        <span class="material-symbols-outlined text-[16px] text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">verified</span>
+      </div>
+
+      <p class="section-label px-0.5 mt-1">Yesterday</p>
+      <div class="row-card safe-mail-row rounded-xl bg-white p-3 flex items-start gap-3" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-label-lg font-bold text-on-primary" style="background:linear-gradient(135deg,#4648d4,#7bd0ff);">G</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface truncate">GitHub Notifications</p>
+            <span class="text-label-sm text-outline flex-shrink-0">11:30 PM</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant truncate">3 new pull request reviews are waiting for you.</p>
+        </div>
+        <span class="material-symbols-outlined text-[16px] text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">verified</span>
+      </div>
+      <div class="row-card safe-mail-row rounded-xl bg-white p-3 flex items-start gap-3" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-label-lg font-bold" style="background:linear-gradient(135deg,#2f2ebe,#c0c1ff);color:#fff;">Z</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface truncate">Zoom Meeting Reminder</p>
+            <span class="text-label-sm text-outline flex-shrink-0">9:00 AM</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant truncate">Your 10 AM standup starts in 15 minutes.</p>
+        </div>
+        <span class="material-symbols-outlined text-[16px] text-primary flex-shrink-0" style="font-variation-settings:'FILL' 1;">verified</span>
+      </div>
+    </div>
+
+    <!-- disclaimer -->
+    <p class="text-label-sm text-outline text-center px-4 mt-2">
+      Sample messages shown for display. Connect your mailbox to scan real email.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: SPAM MAILBOX
+  ══════════════════════════════════ -->
+  <div id="screen-spam-mailbox" class="screen px-space-md pt-4 pb-6 gap-y-3">
+    <!-- search -->
+    <div class="fade-up flex items-center gap-2 rounded-full px-3 py-2.5 bg-white" style="box-shadow:0 2px 10px rgba(0,0,0,.05);">
+      <span class="material-symbols-outlined text-[20px] text-outline">search</span>
+      <input type="search" placeholder="Search quarantine…" class="flex-1 bg-transparent text-body-md text-on-surface placeholder:text-outline outline-none border-none"/>
+      <span class="material-symbols-outlined text-[20px] text-secondary" style="font-variation-settings:'FILL' 1;">filter_list</span>
+    </div>
+
+    <!-- summary -->
+    <div class="fade-up flex items-center gap-2 flex-wrap">
+      <span class="chip chip-warn flex items-center gap-1"><span class="material-symbols-outlined text-[11px]">warning</span>4 threats</span>
+      <span class="chip chip-spam flex items-center gap-1"><span class="material-symbols-outlined text-[11px]">block</span>18 this month</span>
+    </div>
+
+    <!-- threat rows -->
+    <div class="fade-up flex flex-col gap-2">
+      <p class="section-label px-0.5">High Risk</p>
+
+      <div class="row-card rounded-xl p-3 flex items-start gap-3 border-l-4 border-error bg-white" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center bg-error-container text-on-error-container">
+          <span class="material-symbols-outlined text-[18px]">warning</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface truncate">IT Helpdesk Password Notice</p>
+            <span class="chip chip-warn">HIGH</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant">security@m1crosoft-auth.org</p>
+          <p class="text-body-sm text-on-surface-variant">Spoofed domain · Credential harvesting link detected</p>
+        </div>
+      </div>
+
+      <div class="row-card rounded-xl p-3 flex items-start gap-3 border-l-4 border-secondary bg-white" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center bg-secondary-fixed text-on-secondary-fixed">
+          <span class="material-symbols-outlined text-[18px]">local_shipping</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface truncate">DHL Package #94820 Alert</p>
+            <span class="chip chip-spam">MED</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant">no-reply@dhl-pkg-track.net</p>
+          <p class="text-body-sm text-on-surface-variant">Suspicious .exe attachment · Trojan signature</p>
+        </div>
+      </div>
+
+      <p class="section-label px-0.5 mt-1">Spam / Junk</p>
+
+      <div class="row-card rounded-xl bg-white p-3 flex items-start gap-3" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center bg-surface-container text-on-surface-variant">
+          <span class="material-symbols-outlined text-[18px]">sell</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface truncate">You've Won a Prize!</p>
+            <span class="chip" style="background:#eceef2;color:#464554;">LOW</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant">rewards@promo-galaxy5.biz</p>
+          <p class="text-body-sm text-on-surface-variant">Unsolicited promotional · Unknown sender</p>
+        </div>
+      </div>
+
+      <div class="row-card rounded-xl bg-white p-3 flex items-start gap-3" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center bg-surface-container text-on-surface-variant">
+          <span class="material-symbols-outlined text-[18px]">currency_bitcoin</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface truncate">Crypto Opportunity Inside</p>
+            <span class="chip" style="background:#eceef2;color:#464554;">LOW</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant">invest@cryptoexch-pulse.io</p>
+          <p class="text-body-sm text-on-surface-variant">Likely investment scam · Flagged by heuristics</p>
+        </div>
+      </div>
+
+      <!-- bulk action bar -->
+      <div class="flex gap-2 mt-1">
+        <button class="flex-1 py-2.5 rounded-full bg-error text-on-error text-label-lg font-bold hover:opacity-90 active:opacity-80 transition-opacity"
+                onclick="showToast('All threats quarantined')">Quarantine All</button>
+        <button class="flex-1 py-2.5 rounded-full bg-surface-container text-on-surface text-label-lg font-bold hover:bg-surface-container-high transition-colors"
+                onclick="showToast('Marked as reviewed')">Mark Reviewed</button>
+      </div>
+    </div>
+
+    <p class="text-label-sm text-outline text-center px-4 mt-1">
+      Sample threats shown for display. Connect your mailbox to scan real email.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: EVENTS
+  ══════════════════════════════════ -->
+  <div id="screen-events" class="screen px-space-md pt-4 pb-6 gap-y-3">
+
+    <!-- hero banner -->
+    <div class="fade-up w-full rounded-2xl p-space-md text-on-primary overflow-hidden relative"
+         style="background:linear-gradient(135deg,#4648d4 0%,#6063ee 60%,#7bd0ff 100%);
+                box-shadow:0 16px 36px -10px rgba(70,72,212,.35);">
+      <div class="aura-blob pointer-events-none absolute -top-6 -right-6 w-32 h-32 rounded-full blur-2xl" style="background:rgba(253,86,167,.2);"></div>
+      <p class="section-label" style="color:rgba(255,255,255,.7);">This Month</p>
+      <div class="flex items-baseline gap-2 mt-0.5">
+        <span class="text-headline-xl-mobile font-bold">18</span>
+        <span class="text-body-lg" style="color:rgba(255,255,255,.8);">threats blocked</span>
+      </div>
+      <div class="mt-3 flex items-center gap-3 flex-wrap">
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full bg-secondary-fixed"></span>
+          <span class="text-body-sm" style="color:rgba(255,255,255,.8);">4 phishing attempts</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full" style="background:#c0c1ff;"></span>
+          <span class="text-body-sm" style="color:rgba(255,255,255,.8);">11 spam / junk</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span class="w-2 h-2 rounded-full" style="background:#c4e7ff;"></span>
+          <span class="text-body-sm" style="color:rgba(255,255,255,.8);">3 malware</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- timeline -->
+    <div class="fade-up flex flex-col gap-2">
+      <p class="section-label px-0.5">Security Timeline</p>
+
+      <!-- event row helper -->
+      <div class="row-card rounded-xl bg-white p-3 flex items-start gap-3" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="flex flex-col items-center gap-1 pt-0.5">
+          <div class="w-8 h-8 rounded-full bg-error-container text-on-error-container flex items-center justify-center">
+            <span class="material-symbols-outlined text-[16px]">phishing</span>
+          </div>
+          <div class="w-px flex-1 min-h-[20px] bg-surface-container-high"></div>
+        </div>
+        <div class="flex-1 min-w-0 pb-2">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface">Phishing link blocked</p>
+            <span class="text-label-sm text-outline flex-shrink-0">Today, 9:14 AM</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant mt-0.5">Link to malicious-login.cc intercepted in email from spoofed IT sender.</p>
+        </div>
+      </div>
+
+      <div class="row-card rounded-xl bg-white p-3 flex items-start gap-3" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="flex flex-col items-center gap-1 pt-0.5">
+          <div class="w-8 h-8 rounded-full bg-secondary-fixed text-on-secondary-fixed flex items-center justify-center">
+            <span class="material-symbols-outlined text-[16px]">bug_report</span>
+          </div>
+          <div class="w-px flex-1 min-h-[20px] bg-surface-container-high"></div>
+        </div>
+        <div class="flex-1 min-w-0 pb-2">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface">Trojan attachment quarantined</p>
+            <span class="text-label-sm text-outline flex-shrink-0">Today, 8:02 AM</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant mt-0.5">Executable inside ZIP flagged as Win32.Trojan.GenericKD.</p>
+        </div>
+      </div>
+
+      <div class="row-card rounded-xl bg-white p-3 flex items-start gap-3" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="flex flex-col items-center gap-1 pt-0.5">
+          <div class="w-8 h-8 rounded-full bg-primary-fixed text-on-primary-fixed-variant flex items-center justify-center">
+            <span class="material-symbols-outlined text-[16px]">verified_user</span>
+          </div>
+          <div class="w-px flex-1 min-h-[20px] bg-surface-container-high"></div>
+        </div>
+        <div class="flex-1 min-w-0 pb-2">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface">Zero-Day Shield updated</p>
+            <span class="text-label-sm text-outline flex-shrink-0">Today, 7:50 AM</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant mt-0.5">Heuristic ruleset v3.1 deployed. 14 new signatures added.</p>
+        </div>
+      </div>
+
+      <div class="row-card rounded-xl bg-white p-3 flex items-start gap-3" style="box-shadow:0 2px 8px rgba(0,0,0,.03);">
+        <div class="flex flex-col items-center gap-1 pt-0.5">
+          <div class="w-8 h-8 rounded-full bg-surface-container text-on-surface-variant flex items-center justify-center">
+            <span class="material-symbols-outlined text-[16px]">unsubscribe</span>
+          </div>
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-label-lg font-bold text-on-surface">3 spam emails filtered</p>
+            <span class="text-label-sm text-outline flex-shrink-0">Yesterday</span>
+          </div>
+          <p class="text-body-sm text-on-surface-variant mt-0.5">Unsolicited promotional and investment-scam messages routed to quarantine.</p>
+        </div>
+      </div>
+    </div>
+
+    <p class="text-label-sm text-outline text-center px-4 mt-1">
+      Sample events shown. Real event log requires mailbox connection.
+    </p>
+  </div>
+
+  <!-- ══════════════════════════════════
+       SCREEN: PROFILE
+  ══════════════════════════════════ -->
+  <div id="screen-profile" class="screen px-space-md pt-4 pb-6 gap-y-4">
+
+    <!-- avatar card -->
+    <div class="fade-up w-full rounded-2xl p-space-lg text-center relative overflow-hidden"
+         style="background:linear-gradient(145deg,#4648d4 0%,#6063ee 55%,#c0c1ff 100%);
+                box-shadow:0 16px 36px -10px rgba(70,72,212,.3);">
+      <div class="aura-blob pointer-events-none absolute -top-8 -right-8 w-36 h-36 rounded-full blur-2xl" style="background:rgba(253,86,167,.18);"></div>
+      <div class="relative z-10 flex flex-col items-center gap-3">
+        <div class="w-20 h-20 rounded-full flex items-center justify-center text-headline-xl font-bold text-on-primary"
+             style="background:rgba(255,255,255,.22);backdrop-filter:blur(8px);border:2px solid rgba(255,255,255,.4);">
+          N
+        </div>
+        <div>
+          <p class="text-headline-sm font-semibold text-on-primary">Nisha</p>
+          <p class="text-body-sm mt-0.5" style="color:rgba(255,255,255,.75);">nisha@example.com</p>
+        </div>
+        <span class="chip chip-secure flex items-center gap-1 mt-1">
+          <span class="material-symbols-outlined text-[11px]">verified_user</span>Mailwise Shield Active
+        </span>
+      </div>
+    </div>
+
+    <!-- mailbox connection -->
+    <div class="fade-up flex flex-col gap-2">
+      <p class="section-label px-0.5">Mailbox Connection</p>
+      <div class="rounded-xl bg-white p-4 flex items-center gap-3" style="box-shadow:0 2px 10px rgba(0,0,0,.04);">
+        <div class="w-10 h-10 rounded-full bg-surface-container flex-shrink-0 flex items-center justify-center">
+          <span class="material-symbols-outlined text-[22px] text-outline">mail</span>
+        </div>
+        <div class="flex-1">
+          <p class="text-label-lg font-bold text-on-surface">Outlook / Microsoft 365</p>
+          <p class="text-body-sm text-on-surface-variant">Not connected</p>
+        </div>
+        <button class="px-3 py-1.5 rounded-full bg-primary text-on-primary text-label-sm font-bold hover:opacity-90 transition-opacity"
+                onclick="showToast('Outlook connection requires backend setup')">Connect</button>
+      </div>
+      <p class="text-label-sm text-outline px-1">
+        Connecting your mailbox enables live scanning. No email content is stored.
+      </p>
+    </div>
+
+    <!-- notifications -->
+    <div class="fade-up flex flex-col gap-2">
+      <p class="section-label px-0.5">Notifications</p>
+      <div class="rounded-xl bg-white overflow-hidden" style="box-shadow:0 2px 10px rgba(0,0,0,.04);">
+        <div class="flex items-center justify-between p-4">
+          <div>
+            <p class="text-label-lg font-bold text-on-surface">Threat Alerts</p>
+            <p class="text-body-sm text-on-surface-variant">Notify when a threat is detected</p>
+          </div>
+          <div class="toggle-track on" data-toggle="threats" onclick="toggleSwitch(this)" aria-label="Toggle threat alerts" role="switch" aria-checked="true">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+        <div class="divider mx-4"></div>
+        <div class="flex items-center justify-between p-4">
+          <div>
+            <p class="text-label-lg font-bold text-on-surface">Weekly Summary</p>
+            <p class="text-body-sm text-on-surface-variant">Digest of shield activity</p>
+          </div>
+          <div class="toggle-track on" data-toggle="summary" onclick="toggleSwitch(this)" aria-label="Toggle weekly summary" role="switch" aria-checked="true">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+        <div class="divider mx-4"></div>
+        <div class="flex items-center justify-between p-4">
+          <div>
+            <p class="text-label-lg font-bold text-on-surface">Shield Updates</p>
+            <p class="text-body-sm text-on-surface-variant">When rule signatures are refreshed</p>
+          </div>
+          <div class="toggle-track" data-toggle="updates" onclick="toggleSwitch(this)" aria-label="Toggle shield update notifications" role="switch" aria-checked="false">
+            <div class="toggle-thumb"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- account settings -->
+    <div class="fade-up flex flex-col gap-2">
+      <p class="section-label px-0.5">Account</p>
+      <div class="rounded-xl bg-white overflow-hidden" style="box-shadow:0 2px 10px rgba(0,0,0,.04);">
+        <button class="row-card w-full flex items-center gap-3 p-4" onclick="showToast('Privacy settings coming soon')">
+          <span class="material-symbols-outlined text-[20px] text-on-surface-variant">privacy_tip</span>
+          <p class="text-label-lg font-semibold text-on-surface flex-1 text-left">Privacy &amp; Data</p>
+          <span class="material-symbols-outlined text-[18px] text-outline">chevron_right</span>
+        </button>
+        <div class="divider mx-4"></div>
+        <button class="row-card w-full flex items-center gap-3 p-4" onclick="showToast('Help centre coming soon')">
+          <span class="material-symbols-outlined text-[20px] text-on-surface-variant">help_center</span>
+          <p class="text-label-lg font-semibold text-on-surface flex-1 text-left">Help &amp; About</p>
+          <span class="material-symbols-outlined text-[18px] text-outline">chevron_right</span>
+        </button>
+        <div class="divider mx-4"></div>
+        <button class="row-card w-full flex items-center gap-3 p-4" onclick="showToast('You have been signed out')">
+          <span class="material-symbols-outlined text-[20px] text-error">logout</span>
+          <p class="text-label-lg font-semibold text-error flex-1 text-left">Sign Out</p>
+        </button>
+      </div>
+    </div>
+
+    <!-- version -->
+    <p class="text-label-sm text-outline text-center">Mailwise v1.0.0 · Heuristic Engine 3.1</p>
+  </div>
+
+</div><!-- /screen-container -->
+
+<!-- ════════════════════════════════════════════════
+     BOTTOM NAV
+════════════════════════════════════════════════ -->
+<nav class="fixed bottom-0 w-full z-50 pb-safe pointer-events-none">
+  <div class="px-space-md pb-2">
+    <div class="pointer-events-auto h-16 px-1 flex items-center justify-around rounded-full"
+         style="background:rgba(255,255,255,.85);backdrop-filter:blur(28px);
+                box-shadow:0 -2px 20px rgba(70,72,212,.07),0 8px 32px rgba(0,0,0,.04);">
+      <a class="nav-link nav-active flex flex-col items-center justify-center min-w-[56px] h-12 px-3 rounded-full transition-all" data-screen="home" href="#" aria-label="Home">
+        <span class="material-symbols-outlined text-[22px]" style="font-variation-settings:'FILL' 1;">dashboard</span>
+        <span class="text-label-sm mt-0.5">Home</span>
+      </a>
+      <a class="nav-link flex flex-col items-center justify-center min-w-[56px] h-12 px-3 rounded-full transition-all" data-screen="safe-mailbox" href="#" aria-label="Safe Mailbox">
+        <span class="material-symbols-outlined text-[22px]">mark_email_read</span>
+        <span class="text-label-sm mt-0.5">Safe</span>
+      </a>
+      <a class="nav-link flex flex-col items-center justify-center min-w-[56px] h-12 px-3 rounded-full transition-all" data-screen="spam-mailbox" href="#" aria-label="Spam Mailbox">
+        <span class="material-symbols-outlined text-[22px]">unsubscribe</span>
+        <span class="text-label-sm mt-0.5">Spam</span>
+      </a>
+      <a class="nav-link flex flex-col items-center justify-center min-w-[56px] h-12 px-3 rounded-full transition-all" data-screen="events" href="#" aria-label="Security Events">
+        <span class="material-symbols-outlined text-[22px]">shield_with_heart</span>
+        <span class="text-label-sm mt-0.5">Events</span>
+      </a>
+      <a class="nav-link flex flex-col items-center justify-center min-w-[56px] h-12 px-3 rounded-full transition-all" data-screen="profile" href="#" aria-label="Profile">
+        <span class="material-symbols-outlined text-[22px]">person</span>
+        <span class="text-label-sm mt-0.5">Profile</span>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ════════════════════════════════════════════════
+     SCRIPTS
+════════════════════════════════════════════════ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script>
+(function () {
+  'use strict';
+
+  /* ─────────────────────────────────────────────
+     Helpers
+  ───────────────────────────────────────────── */
+  const $ = s => document.querySelector(s);
+  const $$ = s => document.querySelectorAll(s);
+
+  const SCREEN_TITLES = {
+    'home':          'Home',
+    'safe-mailbox':  'Safe Mailbox',
+    'spam-mailbox':  'Spam Mailbox',
+    'events':        'Events',
+    'profile':       'Profile',
+    'help':          'Help & About',
+  };
+
+  let currentScreen = 'home';
+
+  /* ─────────────────────────────────────────────
+     Toast
+  ───────────────────────────────────────────── */
+  window.showToast = function(msg) {
+    const t = $('#toast');
+    t.textContent = msg;
+    gsap.killTweensOf(t);
+    gsap.set(t, { opacity: 0, y: 20, pointerEvents: 'none' });
+    gsap.to(t, { opacity: 1, y: 0, duration: .25, ease: 'power2.out',
+      onComplete() {
+        gsap.to(t, { opacity: 0, y: -8, duration: .3, delay: 2, ease: 'power2.in' });
+      }
+    });
+  };
+
+  /* ─────────────────────────────────────────────
+     Drawer
+  ───────────────────────────────────────────── */
+  function openDrawer() {
+    gsap.to('#navDrawer',       { x: 0, duration: .3, ease: 'power3.out' });
+    gsap.to('#drawerBackdrop',  { opacity: 1, duration: .25 });
+    $('#drawerBackdrop').classList.remove('hidden');
+    $('#drawerBackdrop').style.pointerEvents = 'auto';
+  }
+  function closeDrawer() {
+    gsap.to('#navDrawer',       { x: '100%', duration: .28, ease: 'power3.in' });
+    gsap.to('#drawerBackdrop',  { opacity: 0, duration: .22,
+      onComplete() {
+        $('#drawerBackdrop').classList.add('hidden');
+        $('#drawerBackdrop').style.pointerEvents = 'none';
+      }
+    });
+  }
+
+  $('#menuToggleBtn').addEventListener('click', openDrawer);
+  $('#drawerClose').addEventListener('click', closeDrawer);
+  $('#drawerBackdrop').addEventListener('click', closeDrawer);
+
+  $$('.drawer-link').forEach(link => {
+    link.addEventListener('click', e => {
+      e.preventDefault();
+      const screen = link.dataset.screen;
+      closeDrawer();
+      setTimeout(() => showScreen(screen), 200);
+    });
+  });
+
+  /* ─────────────────────────────────────────────
+     Screen navigation
+  ───────────────────────────────────────────── */
+  window.showScreen = function(id) {
+    if (id === currentScreen) return;
+
+    const prev = $(`#screen-${currentScreen}`);
+    const next = $(`#screen-${id}`);
+    if (!next) return;
+
+    // direction: going "right" if going deeper, "left" if going back
+    const order = ['home','safe-mailbox','spam-mailbox','events','profile'];
+    const prevIdx = order.indexOf(currentScreen);
+    const nextIdx = order.indexOf(id);
+    const dir = nextIdx >= prevIdx ? 1 : -1;
+
+    // set next off-screen
+    gsap.set(next, { x: 40 * dir, opacity: 0 });
+    next.classList.add('active');
+    next.scrollTop = 0;
+
+    // animate out prev
+    gsap.to(prev, {
+      x: -30 * dir, opacity: 0, duration: .22, ease: 'power2.in',
+      onComplete() { prev.classList.remove('active'); gsap.set(prev, { x: 0, opacity: 1 }); }
+    });
+
+    // animate in next
+    gsap.to(next, { x: 0, opacity: 1, duration: .3, ease: 'power2.out', delay: .05 });
+
+    // stagger content
+    const reveals = next.querySelectorAll('.fade-up, .scale-in, .fade-right');
+    if (reveals.length) {
+      gsap.fromTo(reveals,
+        { opacity: 0, y: 14 },
+        { opacity: 1, y: 0, duration: .35, stagger: .06, ease: 'power2.out', delay: .15 }
+      );
+    }
+
+    // update nav
+    $$('.nav-link').forEach(a => {
+      const isActive = a.dataset.screen === id;
+      a.classList.toggle('nav-active', isActive);
+      const icon = a.querySelector('.material-symbols-outlined');
+      if (icon) icon.style.fontVariationSettings = isActive ? "'FILL' 1" : "'FILL' 0";
+    });
+
+    // update drawer active state
+    $$('.drawer-link').forEach(a => {
+      a.classList.toggle('bg-surface-container-low', a.dataset.screen === id);
+      a.classList.toggle('text-on-surface', a.dataset.screen === id);
+    });
+
+    // update header title
+    $('#header-title').textContent = SCREEN_TITLES[id] || 'Mailwise';
+
+    currentScreen = id;
+  };
+
+  // Wire bottom nav
+  $$('.nav-link[data-screen]').forEach(a => {
+    a.addEventListener('click', e => {
+      e.preventDefault();
+      showScreen(a.dataset.screen);
+    });
+  });
+
+  // Header avatar → profile
+  $('#profileAvatarBtn').addEventListener('click', () => showScreen('profile'));
+
+  /* ─────────────────────────────────────────────
+     Period tabs (dot-matrix chart)
+  ───────────────────────────────────────────── */
+  $$('.period-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      $$('.period-tab').forEach(b => {
+        b.classList.remove('period-tab-active', 'bg-white', 'shadow-sm', 'text-on-surface');
+        b.classList.add('text-on-surface-variant');
+      });
+      btn.classList.add('period-tab-active', 'bg-white', 'shadow-sm', 'text-on-surface');
+      btn.classList.remove('text-on-surface-variant');
+      showToast(`Showing ${btn.dataset.period} view`);
+    });
+  });
+
+  /* ─────────────────────────────────────────────
+     Quarantine action
+  ───────────────────────────────────────────── */
+  window.quarantine = function(btn, name) {
+    const card = btn.closest('.triage-card, .row-card');
+    gsap.to(card, {
+      opacity: 0, x: -40, height: 0, padding: 0, margin: 0,
+      duration: .35, ease: 'power2.in',
+      onComplete() { card.remove(); showToast(`"${name}" quarantined`); }
+    });
+  };
+
+  /* ─────────────────────────────────────────────
+     Toggle switches
+  ───────────────────────────────────────────── */
+  window.toggleSwitch = function(track) {
+    const on = !track.classList.contains('on');
+    track.classList.toggle('on', on);
+    track.setAttribute('aria-checked', on);
+    const label = track.closest('.flex').querySelector('p')?.textContent || 'Setting';
+    showToast(`${label} ${on ? 'enabled' : 'disabled'}`);
+  };
+
+  /* ─────────────────────────────────────────────
+     Counter helper
+  ───────────────────────────────────────────── */
+  function countTo(el, target, suffix, duration, dec) {
+    dec = dec || 0;
+    const o = { v: 0 };
+    gsap.to(o, { v: target, duration, ease: 'power2.out',
+      onUpdate() { el.textContent = o.v.toFixed(dec) + suffix; }
+    });
+  }
+
+  /* ─────────────────────────────────────────────
+     Tap feedback on interactive elements
+  ───────────────────────────────────────────── */
+  function addTapFeedback(el) {
+    el.addEventListener('pointerdown', () => {
+      gsap.to(el, { scale: .95, duration: .08, ease: 'power2.in',
+        onComplete() { gsap.to(el, { scale: 1, duration: .28, ease: 'elastic.out(1.1,.5)' }); }
+      });
+    });
+  }
+  $$('button, .nav-link, .row-card, .action-tile, [onclick]').forEach(addTapFeedback);
+
+  /* ─────────────────────────────────────────────
+     Entrance animation (Home screen)
+  ───────────────────────────────────────────── */
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  if (prefersReduced) {
+    // Skip animation, just reveal everything
+    $$('.gsap-hidden').forEach(el => el.style.opacity = 1);
+    $$('.fade-up,.scale-in,.fade-right,.nav-link,.vertex-pill,.dot-col').forEach(el => {
+      el.style.opacity = 1; el.style.transform = 'none';
+    });
+    countTo($('#protection-pct'), 94.8, '%', 0.01, 1);
+    countTo($('#scan-count'),     66,   ' SCANS / MO', 0.01);
+    countTo($('#reviewed-count'), 18,   ' Reviewed', 0.01);
+    countTo($('#verified-count'), 14,   ' verified', 0.01);
+  } else {
+    const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
+    tl.to('#app-header', { opacity: 1, duration: .5 });
+    tl.to('#home-header', { opacity: 1, y: 0, duration: .45 }, '-=.2');
+
+    tl.fromTo('#hero-card',
+      { opacity: 0, scale: .95, y: 22 },
+      { opacity: 1, scale: 1, y: 0, duration: .6, ease: 'back.out(1.2)' },
+      '-=.1'
+    );
+
+    // radar axes draw
+    tl.to('.radar-axis', { strokeDashoffset: 0, duration: .55, stagger: .07, ease: 'power2.inOut' }, '-=.3');
+
+    // data polygon
+    tl.to('#radar-data-poly', { strokeDashoffset: 0, duration: 1.0, ease: 'power2.inOut' }, '-=.4');
+
+    // vertices pop
+    tl.fromTo('.radar-vertex',
+      { scale: 0, opacity: 0 },
+      { scale: 1, opacity: 1, duration: .38, stagger: .07, ease: 'back.out(2.4)' },
+      '-=.5'
+    );
+
+    // vertex pills
+    tl.to('.vertex-pill', { opacity: 1, y: 0, duration: .3, stagger: .06, ease: 'power2.out' }, '-=.2');
+
+    // scan badge + counts
+    tl.to('#scan-badge',   { opacity: 1, duration: .35 }, '-=.3');
+    tl.add(() => countTo($('#scan-count'),     66,   ' SCANS / MO', 1.2), '<');
+    tl.add(() => countTo($('#protection-pct'), 94.8, '%', 1.4, 1),        '<+.1');
+
+    // dot matrix card
+    tl.to('#dot-matrix-card', { opacity: 1, y: 0, duration: .45 }, '-=.8');
+    tl.to('.dot-col', { opacity: 1, y: 0, duration: .3, stagger: { amount: .5 }, ease: 'power2.out' }, '-=.3');
+    tl.add(() => countTo($('#reviewed-count'), 18, ' Reviewed', .7), '-=.4');
+
+    // action tiles
+    tl.to('.scale-in', { opacity: 1, scale: 1, y: 0, duration: .45, stagger: .1, ease: 'back.out(1.4)' }, '-=.2');
+    tl.add(() => countTo($('#verified-count'), 14, ' verified', .6), '-=.35');
+
+    // triage header & cards
+    tl.to('#triage-header', { opacity: 1, y: 0, duration: .35 }, '-=.2');
+    tl.to('.triage-card', { opacity: 1, x: 0, duration: .4, stagger: .08, ease: 'power3.out' }, '-=.15');
+
+    // status bar
+    tl.to('#status-bar', { opacity: 1, y: 0, duration: .35 }, '-=.1');
+
+    // bottom nav
+    tl.to('.nav-link', { opacity: 1, y: 0, duration: .3, stagger: .06, ease: 'back.out(1.5)' }, '-=.25');
+
+    /* ── Continuous ambient loops ── */
+    // radar vertex micro-float
+    gsap.to('.radar-vertex', {
+      y: 'random(-2.5,2.5)', x: 'random(-1.5,1.5)',
+      duration: 'random(2.5,4)', ease: 'sine.inOut',
+      repeat: -1, yoyo: true,
+      stagger: { each: .5, from: 'random' },
+      delay: 2
+    });
+
+    // hero card subtle float
+    gsap.to('#hero-card', { y: -3, duration: 4, ease: 'sine.inOut', repeat: -1, yoyo: true, delay: 2.5 });
+
+    // scan badge scale pulse
+    gsap.to('#scan-badge', { scale: 1.03, duration: 1.8, ease: 'sine.inOut', repeat: -1, yoyo: true, delay: 3 });
+  }
+
+})();
+</script>
+</body>
+</html>
