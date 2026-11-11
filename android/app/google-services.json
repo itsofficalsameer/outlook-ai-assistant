@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "643507568548",
+    "project_id": "outlook-ai-assistant-e9783",
+    "storage_bucket": "outlook-ai-assistant-e9783.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:643507568548:android:a4cfcb85935ce14b2c0b31",
+        "android_client_info": {
+          "package_name": "com.example.outlook_ai_assistant"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAVtKN7tTblPiE3iaDOzB2EJC1_egEaKe4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

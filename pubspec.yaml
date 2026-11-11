@@ -1,0 +1,31 @@
+name: outlook_ai_assistant
+description: "Outlook AI Assistant Mobile App"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  firebase_core: ^5.1.0
+  cloud_firestore: ^7.1.0
+  alarm: ^5.15.0
+  flutter_local_notifications: ^17.2.3
+  webview_flutter: ^4.10.0
+  permission_handler: ^11.3.1 # <-- Permissions mangne ke liye
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Assets folder jahan index.html rakhi hai
+  assets:
+    - assets/
