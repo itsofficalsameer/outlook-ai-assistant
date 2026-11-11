@@ -1,0 +1,19 @@
+# Flutter / Dart build outputs
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Android build outputs
+android/app/build/
+android/.gradle/
+**/android/**/build/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+.metadata
