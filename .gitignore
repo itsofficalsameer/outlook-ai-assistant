@@ -1,1 +1,20 @@
-node_modules/
+# Python bytecode and cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Environment variables & secrets
+.env
+secrets/
+
+# IDE and Editor settings
+.vscode/
+.idea/
+*.swp
+
