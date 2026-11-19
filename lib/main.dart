@@ -3,23 +3,23 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:alarm/alarm.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp();
-  await Alarm.init();
+import 'home_screen.dart';
+import 'mails_screen.dart';
+import 'events_screen.dart';
+import 'meeting_screen.dart';
+import 'profile_screen.dart';
 
-  runApp(const OutlookAiApp());
-}
+class MainNavigationWrapper extends StatefulWidget {
+  const MainNavigationWrapper({
+    super.key,
+    required this.userAccount,
+    required this.onLogout,
+  });
 
-class OutlookAiApp extends StatelessWidget {
-  const OutlookAiApp({super.key});
+  final GoogleSignInAccount userAccount;
+  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
